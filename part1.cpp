@@ -1,132 +1,141 @@
 #include <iostream>
 #include <fstream>
-#include <unordered_map>
 #include <string>
 #include <cctype>
 
 using namespace std;
 
-// Token type codes
-enum TokenType {
-    // Keywords
-    KW_INT = 3,
-    KW_MAIN = 4,
-    KW_CHAR = 5,
-    KW_FOR = 6,
-    KW_IF = 7,
-    KW_ELSE = 8,
-    KW_RETURN = 9,
-    
-    // Operators
-    OP_ASSIGN = 10,
-    OP_EQ = 11,       // Assuming second '=' is equality
-    OP_GE = 12,
-    OP_LE = 13,
-    OP_GT = 14,
-    OP_LT = 15,
-    OP_ADD = 16,
-    OP_SUB = 17,
-    OP_MUL = 18,
-    OP_DIV = 19,
-    
-    // Punctuation
-    PUN_LBRACE = 20,
-    PUN_RBRACE = 21,
-    // ... add other punctuation codes
+const int KEYNUM = 20;
+const int OPNUM = 16;
+const int PUNCNUM = 8;
+string keywords[KEYNUM] = {"int", "main", "char", "for", "if", 
+                           "else", "return", "while", "do", "break",
+                            "continue", "switch", "case", "default",
+                            "float", "double", "long", "short", "void"};
+
+string operators[OPNUM] = {"=", "==", ">=", "<=", ">", 
+                           "<", "+", "-", "*", "/",
+                            "++", "--", "&&", "||", "!",
+                            "!="};
+
+string punctuation[PUNCNUM] = {"{", "}", ",", ";", "(",
+                               ")", "[", "]"};
+
+struct Token {
+    string value;
+    string type;
+    int type_num;
 };
 
-unordered_map<string, int> keywords = {
-    {"int", KW_INT},
-    {"main", KW_MAIN},
-    {"char", KW_CHAR},
-    {"for", KW_FOR},
-    {"if", KW_IF},
-    {"else", KW_ELSE},
-    {"return", KW_RETURN}
-};
-
-unordered_map<string, int> operators = {
-    {"=", OP_ASSIGN},
-    {"==", OP_EQ},
-    {">=", OP_GE},
-    {"<=", OP_LE},
-    {">", OP_GT},
-    {"<", OP_LT},
-    {"+", OP_ADD},
-    {"-", OP_SUB},
-    {"*", OP_MUL},
-    {"/", OP_DIV}
-};
-
-unordered_map<char, int> punctuation = {
-    {'{', PUN_LBRACE},
-    {'}', PUN_RBRACE}
-    // Add other punctuation mappings
-};
-
-void tokenize(const string& src) {
-    int pos = 0;
-    while (pos < src.length()) {
-        char current = src[pos];
-        
-        // Skip whitespace
-        if (isspace(current)) {
-            pos++;
-            continue;
+bool isKeyword(const string& s, int& idx) {
+    for (int i = 0; i < KEYNUM; ++i) {
+        if (s == keywords[i]) {
+            idx = i;
+            return true;
         }
-        
-        // Handle keywords and identifiers
-        if (isalpha(current)) {
-            string word;
-            while (pos < src.length() && isalnum(src[pos])) {
-                word += src[pos++];
-            }
-            if (keywords.count(word)) {
-                cout << "<" << word << ", " << keywords[word] << ">" << endl;
-            }
-            // Else handle as identifier (add your ID token type)
-            continue;
-        }
-        
-        // Handle operators
-        if (operators.count(string(1, current))) {
-            // Check for multi-character operators
-            if (pos + 1 < src.length()) {
-                string two_char = string(1, current) + src[pos+1];
-                if (operators.count(two_char)) {
-                    cout << "<" << two_char << ", " << operators[two_char] << ">" << endl;
-                    pos += 2;
-                    continue;
-                }
-            }
-            cout << "<" << current << ", " << operators[string(1, current)] << ">" << endl;
-            pos++;
-            continue;
-        }
-        
-        // Handle punctuation
-        if (punctuation.count(current)) {
-            cout << "<" << current << ", " << punctuation[current] << ">" << endl;
-            pos++;
-            continue;
-        }
-        
-        // Handle numbers (add your implementation)
-        
-        pos++;
     }
+    return false;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " <source_file>" << endl;
-        return 1;
+bool isOperator(const string& s, int& idx) {
+    for (int i = 0; i < OPNUM; ++i) {
+        if (s == operators[i]) {
+            idx = i;
+            return true;
+        }
     }
-    
-    ifstream file(argv[1]);
-    string source((istreambuf_iterator<char>(file)), 
-                 istreambuf_iterator<char>());
-    
-    tokenize(source);
+    return false;
+}
+
+bool isPunctuation(const string& s, int& idx) {
+    for (int i = 0; i < PUNCNUM; ++i) {
+        if (s == punctuation[i]) {
+            idx = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+Token processNumber(ifstream& fin, char first) {
+    string num(1, first);
+    char c;
+    while (fin.get(c) && isdigit(c)) num += c;
+    if (fin && !isdigit(c)) fin.unget();
+    return {num, "integer constant", 1};
+}
+
+Token processString(ifstream& fin) {
+    string str;
+    char c;
+    while (fin.get(c)) {
+        if (c == '"') break;
+        str += c;
+    }
+    return {str, "string", 2};
+}
+
+Token processIdOrKeyword(ifstream& fin, char first) {
+    string word(1, first);
+    char c;
+    while (fin.get(c) && (isalnum(c) || c == '_')) word += c;
+    if (fin && !(isalnum(c) || c == '_')) fin.unget();
+    int idx;
+    if (isKeyword(word, idx))
+        return {word, "keyword", idx + 10};
+    else
+        return {word, "identifier", 0};
+}
+
+Token processOperatorOrPunc(ifstream& fin, char first) {
+    string op(1, first);
+    char c;
+    fin.get(c);
+    if (fin) {
+        op += c;
+        int idx;
+        if (isOperator(op, idx))
+            return {op, "operator", idx + 30};
+        if (isPunctuation(op, idx))
+            return {op, "punctuation", idx + 50};
+        op.pop_back();
+        fin.unget();
+    }
+    int idx;
+    if (isOperator(op, idx))
+        return {op, "operator", idx + 30};
+    if (isPunctuation(op, idx))
+        return {op, "punctuation", idx + 50};
+    return {op, "unknown", -1};
+}
+
+int main() {
+    ifstream fin("input.txt");
+    ofstream fout("tokens.txt");
+    char c;
+    while (fin.get(c)) {
+        if (isspace(c)) continue;
+        if (isdigit(c)) {
+            Token t = processNumber(fin, c);
+            fout << "<\"" << t.value << "\", " << t.type_num << ">, ";
+            cout << "<\"" << t.value << "\", " << t.type << ">, ";
+        } else if (c == '"') {
+            Token t = processString(fin);
+            fout << "<\"" << t.value << "\", 2>, ";
+            cout << "<\"" << t.value << "\", string>, ";
+        } else if (isalpha(c) || c == '_') {
+            Token t = processIdOrKeyword(fin, c);
+            fout << "<\"" << t.value << "\", " << t.type_num << ">, ";
+            cout << "<\"" << t.value << "\", " << t.type << ">, ";
+        } else {
+            Token t = processOperatorOrPunc(fin, c);
+            if (t.type_num != -1) {
+                fout << "<\"" << t.value << "\", " << t.type_num << ">, ";
+                cout << "<\"" << t.value << "\", " << t.type << ">, ";
+            }
+        }
+    }
+    fin.close();
+    fout.close();
     return 0;
 }
