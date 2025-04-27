@@ -8,7 +8,7 @@ using namespace std;
 const int KEYNUM = 20;
 const int OPNUM = 16;
 const int PUNCNUM = 8;
-string keywords[KEYNUM] = {"int", "main", "char", "for", "if", 
+string keywords[KEYNUM] = {"int", "const", "char", "for", "if", 
                            "else", "return", "while", "do", "break",
                             "continue", "switch", "case", "default",
                             "float", "double", "long", "short", "void"};
